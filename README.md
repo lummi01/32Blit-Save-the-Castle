@@ -1,8 +1,8 @@
-//![](/assets/image.png)
+![](/assets/image.png)
 # Save the Castle
 Protect the castle from the enemies.
 
-//![](/assets/castle.bmp)
+![](/assets/castle.bmp)
 
 
 For local build:
