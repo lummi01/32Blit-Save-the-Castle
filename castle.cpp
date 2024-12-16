@@ -17,6 +17,9 @@ struct GAME
     short level;
     short ani;
     short enemy_timer;
+    short stone;
+    short stone_base[2];
+    short stone_load[2];
 };
 
 struct PLAYER
@@ -57,6 +60,7 @@ ENEMY e;
 Timer ani_timer;
 
 static std::list<ENEMY> enemy;
+static std::list<ENEMY> enemy2;
 static std::list<STONE> stone;
 static std::list<PARTICLE> stoneparticles;
 static std::list<PARTICLE> enemyparticles;
@@ -116,8 +120,60 @@ void UpdateEnemyParticles()
         ep->vel.y += .03f;
         if (ep->pos.y < 107)
             ep->pos += ep->vel;
-        ep->alpha -= 2;
+        ep->alpha--;
         ++ep;
+    }
+}
+
+void NewStone()
+{
+        p.stone = 0;
+        STONE s;
+        s.dy = .1f;
+        s.pos = Vec2(p.x,34);
+        s.bonus = 0;
+        stone.push_back(s);
+}
+
+void UpdateStone()
+{
+    for(auto s = stone.begin(); s != stone.end();) 
+	{
+        if (s->pos.y > 103)
+        {
+            NewStoneParticles(s->pos + Vec2(1,1));
+            s = stone.erase(s);
+            continue;
+        }
+        for(auto e = enemy.begin(); e != enemy.end();)
+        {
+            if (s->pos.x < e->pos.x+5 && s->pos.x+3 > e->pos.x && s->pos.y+3 > e->pos.y)
+            {
+                s->bonus++;
+                game.score+=s->bonus;
+                NewEnemyParticles(e->pos + Vec2(3,3));
+                e = enemy.erase(e);
+                continue;
+            }
+            ++e;
+        }
+        s->dy+=.03f;
+        s->pos.y+=s->dy;
+        ++s;
+    }
+}
+
+void StoneLoad(short s)
+{
+    if (p.stone == 0 && game.stone_base[s] > 0)
+    {
+        p.stone = 3;
+        game.stone_base[s]--;
+        if (game.stone_base[s] == 0 && game.stone_load[s] == 0)
+        {
+            game.stone > 5? game.stone_load[s] = 6: game.stone_load[s] = game.stone;
+            game.stone -= game.stone_load[s];
+        }
     }
 }
 
@@ -156,7 +212,7 @@ void UpdateEnemy()
 	{
         if (e->pos == e->target)
         {
-            if(e->sprite > 0)
+            if (e->sprite > 0)
             {
                 e->sprite = 0;
                 e->target = Vec2(e->pos.x,40);
@@ -164,12 +220,11 @@ void UpdateEnemy()
             }
             else
             {
-                game.life--;
-                if (game.life == 0)//game over
-                {
-                    game.score = 0;
-                    game.life = 3;
-                }
+                ENEMY e2;
+                e2.sprite = 0;
+                e2.pos = Vec2(e->pos.x,38);
+                e2.vel = Vec2(0,0);
+                enemy2.push_back(e2);
                 e = enemy.erase(e);
                 continue;
             }
@@ -179,31 +234,35 @@ void UpdateEnemy()
     }
 }
 
-void UpdateStone()
+void UpdateEnemy2()
 {
-    for(auto s = stone.begin(); s != stone.end();) 
+    for(auto e2 = enemy2.begin(); e2 != enemy2.end();) 
 	{
-        if (s->pos.y > 103)
+        if (p.x + 1 < e2->pos.x)
         {
-            NewStoneParticles(s->pos + Vec2(1,1));
-            s = stone.erase(s);
-            continue;
+            e2->sprite = 8;
+            e2->pos -= Vec2(1,0);
         }
-        for(auto e = enemy.begin(); e != enemy.end();)
+        else
         {
-            if (s->pos.x < e->pos.x+5 && s->pos.x+3 > e->pos.x && s->pos.y+3 > e->pos.y)
+            e2->sprite = 4;
+            e2->pos += Vec2(1,0);
+        }
+        if (e2->pos.x < p.x + 4 && e2->pos.x + 6 > p.x)
+        {
+            NewEnemyParticles(e2->pos + Vec2(3,3));
+            NewEnemyParticles(Vec2(p.x + 2,37));
+            if (p.stone == 3)
+                NewStone();
+            game.life--;
+            if (game.life == 0)//game over
             {
-                s->bonus++;
-                game.score+=s->bonus;
-                NewEnemyParticles(e->pos + Vec2(3,3));
-                e = enemy.erase(e);
-                continue;
+                game.score = 0;
+                game.life = 3;
             }
-            ++e;
+            e2 = enemy2.erase(e2);
         }
-        s->dy+=.03f;
-        s->pos.y+=s->dy;
-        ++s;
+        ++e2;
     }
 }
 
@@ -211,9 +270,20 @@ void Ani(Timer &t)
 {
     game.ani++;
     if (game.ani > 3)
+    {
         game.ani = 0;
+        for (short i=0; i<2; i++)
+        {
+            if (game.stone_load[i] > 0)
+            {
+                game.stone_load[i]--;
+                game.stone_base[i]++;
+            }
+        }
+    }
     NewEnemy();
     UpdateEnemy();
+    UpdateEnemy2();
 }
 
 void Control()
@@ -225,8 +295,8 @@ void Control()
             p.sprite = 1;
             p.x--;
         }
-        else if (p.stone == 0)
-            p.stone = 3;
+        else
+            StoneLoad(0);
     }
     else if (buttons & Button::DPAD_RIGHT && p.sprite != 1)
     {
@@ -235,17 +305,12 @@ void Control()
             p.sprite = 2;
             p.x++;
         }
-        else if (p.stone == 0)
-            p.stone = 3;
+        else
+            StoneLoad(1);
     }
     else if (buttons & Button::A && p.stone == 3)
     {
-        p.stone = 0;
-        STONE s;
-        s.dy = .1f;
-        s.pos = Vec2(p.x,34);
-        s.bonus = 0;
-        stone.push_back(s);
+        NewStone();
     }
     else
     {
@@ -266,25 +331,35 @@ void init()
 
     game.score = 0;
     game.life = 3;
+    game.stone_base[0] = 6;
+    game.stone_base[1] = 6;
+    game.stone = 18;
 }
 
 // render()
 void render(uint32_t time) 
 {
-    screen.pen = Pen(0, 0, 0);
-    screen.clear();
+//    screen.pen = Pen(0, 0, 0);
+//    screen.clear();
 
     screen.mask = nullptr;
-    screen.alpha = 255;
 
-    screen.stretch_blit(screen.sprites,Rect(0, 8, 8, 7), Rect(0, 8, 160, 98));
+    screen.stretch_blit(screen.sprites,Rect(120, 0, 8, 15), Rect(0, 0, 160, 120));
 
     if (p.stone == 3)
         screen.sprite(6, Point(p.x,33));
     screen.sprite(p.sprite + p.stone, Point(p.x,36));
+    for(auto &e2 : enemy2)
+        screen.sprite(32 + e2.sprite + game.ani, Point(e2.pos.x, e2.pos.y));
+
+    Vec2 stone_pos[6]{Vec2(0,0), Vec2(2,0), Vec2(1,-2), Vec2(4,0), Vec2(3,-2), Vec2(2,-4)};
+    for (short i=0; i<game.stone_base[0]; i++)
+        screen.sprite(6, Point(35 + stone_pos[i].x, 40 + stone_pos[i].y));    
+    for (short i=0; i<game.stone_base[1]; i++)
+        screen.sprite(6, Point(121 - stone_pos[i].x, 40 + stone_pos[i].y));    
 
     for (short i=0; i<159; i+=8)
-        screen.sprite(20, Point(i, 106));
+        screen.sprite(16, Point(i, 106));
     short burg[9][13]{
         {22, 0,19,21,19,21,19,21,19,21,19, 0,22},
         {18,18,17,18,17,18,17,18,17,18,17,18,18},
@@ -303,7 +378,7 @@ void render(uint32_t time)
                 screen.sprite(burg[y][x], Point(x * 8 + 28, y * 8 + 35));
         }
     }        
-        
+   
     for(auto &e : enemy)
         screen.sprite(32 + e.sprite + game.ani, Point(e.pos.x, e.pos.y));
 
@@ -323,11 +398,12 @@ void render(uint32_t time)
 		screen.alpha = sp.alpha;
         screen.circle(Point(sp.pos.x, sp.pos.y),sp.radius);
 	}
-	screen.alpha = 255;
 
-//    if (game.state == 0)
+	screen.alpha = 255;
     for (short i=0; i<game.life; i++)
         screen.sprite(7, Point(150 - (i * 6),11));
+
+    screen.text(std::to_string(game.stone + game.stone_base[0] + game.stone_base[1] + game.stone_load[0] + game.stone_load[1]), font, Point(8, 11), true, TextAlign::top_left); 
 
     std::string score_txt ("000000");
     std::string score (std::to_string(game.score) + "0");
@@ -344,5 +420,9 @@ void update(uint32_t time)
         UpdateStone();
         UpdateStoneParticles();
         UpdateEnemyParticles();
+    }
+    else if (game.state == 1) // game over
+    {
+        
     }
 }
