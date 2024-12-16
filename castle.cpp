@@ -1,4 +1,4 @@
-// Ritter
+// Save the Castle
 // 2024 M. Gerloff
 
 #include <list>
@@ -339,9 +339,6 @@ void init()
 // render()
 void render(uint32_t time) 
 {
-//    screen.pen = Pen(0, 0, 0);
-//    screen.clear();
-
     screen.mask = nullptr;
 
     screen.stretch_blit(screen.sprites,Rect(120, 0, 8, 15), Rect(0, 0, 160, 120));
@@ -400,15 +397,19 @@ void render(uint32_t time)
 	}
 
 	screen.alpha = 255;
-    for (short i=0; i<game.life; i++)
-        screen.sprite(7, Point(150 - (i * 6),11));
-
-    screen.text(std::to_string(game.stone + game.stone_base[0] + game.stone_base[1] + game.stone_load[0] + game.stone_load[1]), font, Point(8, 11), true, TextAlign::top_left); 
-
     std::string score_txt ("000000");
     std::string score (std::to_string(game.score) + "0");
     score_txt.erase(0, score.size());
     screen.text(score_txt + score, font, Point(80, 11), true, TextAlign::top_center); 
+
+    screen.sprite(6, Point(6,12));
+    short stone = game.stone;
+    for (short i=0; i<2; i++)
+        stone += (game.stone_base[i] + game.stone_load[i]);
+    screen.text(std::to_string(stone), font, Point(11, 11), true, TextAlign::top_left); 
+
+    for (short i=0; i<game.life; i++)
+        screen.sprite(7, Point(149 - (i * 6),11));
 }
 
 // update()

@@ -5,6 +5,6 @@ splash:
   file: assets/image.png
 icon:
   file: assets/icon.png
-version: v0.1.8
+version: v0.1.9
 category: game
 url: https://github.com/lummi01/32Blit-Save-the-Castle
